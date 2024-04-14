@@ -1,4 +1,5 @@
 from rest_framework import generics
+import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -29,10 +30,11 @@ class TicketList(generics.ListAPIView):
     serializer_class = TicketSerializer
 
 class TicketCreate(APIView):
-    permission_classes = [IsAuthenticated]  # Asegura que solo los usuarios autenticados puedan crear tickets
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        # Pasamos el contexto con 'request' para tener acceso al usuario en el serializador
+        print("TicketCreate post")
+        # El contexto ahora incluye la request para acceso al usuario en el serializer
         serializer = TicketCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
