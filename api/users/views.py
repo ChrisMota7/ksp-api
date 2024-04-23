@@ -6,6 +6,9 @@ from rest_framework.permissions import AllowAny
 from .serializers import UserSerializer
 from .models import User
 import jwt, datetime
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 # Create your views here.
 class RegisterView(APIView):
@@ -73,3 +76,11 @@ class LogoutView(APIView):
             'message': 'success'
         }
         return response
+    
+class UserTypeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_admin = user.isAdmin == '1'
+        return Response({'is_admin': is_admin})

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo
+from users.serializers import UserSerializer
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,6 +11,11 @@ class ProblemaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problema
         fields = '__all__'
+
+class TableCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Categoria
+        fields = ('id', 'name')
 
 class PrioridadSerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,10 +68,16 @@ class TicketSerializer(serializers.ModelSerializer):
         model = Ticket
         fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'prioridad', 'created_at', 'archivos')
 
+class TableTicketsSerializer(serializers.ModelSerializer):
+    problema = ProblemaSerializer(read_only=True)
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Ticket
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'prioridad', 'created_at',)
+
 class MensajeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Mensaje
-        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo']
-
-
+        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo']  
