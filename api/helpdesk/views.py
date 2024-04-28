@@ -68,6 +68,41 @@ class TicketDetailView(APIView):
         serializer = TicketSerializer(ticket)
         return Response(serializer.data)
 
+class DeleteTicketView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, ticket_id):
+        try:
+            ticket = Ticket.objects.get(pk=ticket_id, user=request.user)
+            ticket.isDeleted = '1'  # '1' indica que el ticket está eliminado.
+            ticket.save()
+            return Response({'status': 'success', 'message': 'Ticket marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        except Ticket.DoesNotExist:
+            return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+class UpdateTicketView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, ticket_id):
+        try:
+            ticket = Ticket.objects.get(pk=ticket_id)
+            # Asegúrate de que el usuario tiene permiso para actualizar este ticket.
+            if request.user != ticket.user:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Aquí deberías obtener todos los campos que se esperan actualizar
+            # desde el body de la solicitud, incluyendo la prioridad.
+            data = request.data
+            serializer = TicketSerializer(ticket, data=data, partial=True)  # Establecer partial=True para permitir actualizaciones parciales con PUT
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'status': 'success', 'message': 'Ticket updated.', 'ticket': serializer.data})
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Ticket.DoesNotExist:
+            return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+
 class MensajeCreate(generics.CreateAPIView):
     queryset = Mensaje.objects.all()
     serializer_class = MensajeSerializer
@@ -78,3 +113,4 @@ class MensajeList(generics.ListAPIView):
     def get_queryset(self):
         ticket_id = self.kwargs['ticket_id']
         return Mensaje.objects.filter(ticket_id=ticket_id)
+

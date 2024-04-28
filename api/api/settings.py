@@ -86,7 +86,7 @@ DATABASES = {
         'NAME': 'Helpdesk',
         'USER': 'KSPadmin',
         'PASSWORD': 'Password123',
-        'HOST': 'DESKTOP-CI3IJOM',
+        'HOST': 'DESKTOP-E0KA4EF',
         'PORT': '',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
@@ -163,7 +163,7 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
 "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-"USER_ID_FIELD": "isAdmin"
+"USER_ID_FIELD": "id"
 }
 
 MEDIA_ROOT = BASE_DIR / 'media'

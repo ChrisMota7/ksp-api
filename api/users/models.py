@@ -8,7 +8,7 @@ class User(AbstractUser):
     lastName = models.CharField(max_length=255)
     email = models.CharField(max_length=255, unique=True)
     password = models.CharField(max_length=255)
-    isDeleted = models.CharField(max_length=1)
+    isDeleted = models.CharField(max_length=1, default=0)
     isAdmin = models.CharField(max_length=1)
     createdAt = models.DateTimeField(auto_now_add=True)
     username = None
