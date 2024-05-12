@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     "corsheaders",
     'users', 
     'helpdesk',
@@ -166,4 +167,5 @@ SIMPLE_JWT = {
 "USER_ID_FIELD": "id"
 }
 
+MEDIA_URL='/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

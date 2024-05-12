@@ -1,31 +1,67 @@
 from rest_framework import serializers
 from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo
 from users.serializers import UserSerializer
+from django.http import FileResponse
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
         fields = '__all__'
 
+class PrioridadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prioridad
+        fields = '__all__'
+
 class ProblemaSerializer(serializers.ModelSerializer):
+    categoria = CategoriaSerializer(read_only=True)
+    prioridad = PrioridadSerializer(read_only=True)
+    
     class Meta:
         model = Problema
-        fields = '__all__'
+        fields = ('id', 'name', 'isDeleted', 'categoria', 'prioridad')  # Asegúrate de incluir todos los campos necesarios aquí
+
+    def create(self, validated_data):
+        # Aquí manejas la creación de un problema, asegurándote de que puedas establecer la categoría y la prioridad.
+        categoria_id = self.initial_data.get('categoria')  # obtener el ID de categoría desde el request
+        prioridad_id = self.initial_data.get('prioridad')  # obtener el ID de prioridad desde el request
+        categoria = Categoria.objects.get(id=categoria_id)  # obtener la instancia de Categoria
+        prioridad = Prioridad.objects.get(id=prioridad_id)  # obtener la instancia de Prioridad
+
+        problema = Problema.objects.create(
+            name=validated_data.get('name'),
+            isDeleted=validated_data.get('isDeleted'),
+            categoria=categoria,
+            prioridad=prioridad
+        )
+        return problema
 
 class TableCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
         fields = ('id', 'name')
 
-class PrioridadSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Prioridad
-        fields = '__all__'
+
 
 class ArchivoSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
     class Meta:
         model = Archivo
-        fields = ('id', 'archivo', 'tipo')  
+        fields = ('id', 'archivo', 'tipo', 'url')
+
+    def get_url(self, obj):
+        request = self.context.get('request')
+        if obj.archivo:
+            return self.context['request'].build_absolute_uri(obj.archivo.url)
+        return None
+
+    def get_file(self, obj):
+        if obj.archivo:
+            request = self.context.get('request')
+            response = request.get(obj.archivo.url, stream=True)
+            return FileResponse(response.raw, as_attachment=True, filename=obj.archivo.name)
+        return None
 
 class TicketCreateSerializer(serializers.ModelSerializer):    
     archivos = serializers.ListField(
@@ -36,7 +72,7 @@ class TicketCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ticket
-        fields = ('id', 'asunto', 'descripcion', 'problema', 'prioridad', 'archivos')
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'archivos')
         read_only_fields = ('user',)  # user es de solo lectura.
 
     def create(self, validated_data):
@@ -58,27 +94,35 @@ class TicketCreateSerializer(serializers.ModelSerializer):
             for archivo_file in archivos_data:
                 # Crea una instancia de Archivo para cada archivo subido
                 # y asócialo al ticket recién creado.
-                Archivo.objects.create(archivo=archivo_file, ticket=ticket)
+                Archivo.objects.create(archivo=archivo_file, ticket=ticket) 
         return ticket
 
 class TicketSerializer(serializers.ModelSerializer):
     archivos = ArchivoSerializer(many=True, read_only=True)
+    problema = ProblemaSerializer(read_only=True)
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = Ticket
-        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'prioridad', 'created_at', 'archivos')
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'status', 'isDeleted', 'created_at', 'archivos')
 
 class TableTicketsSerializer(serializers.ModelSerializer):
     problema = ProblemaSerializer(read_only=True)
     user = UserSerializer(read_only=True)
-    prioridad = PrioridadSerializer(read_only=True)
 
     class Meta:
         model = Ticket
-        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'status', 'prioridad', 'created_at',)
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'isDeleted', 'status', 'created_at',)
 
 class MensajeSerializer(serializers.ModelSerializer):
+    ticket = TicketSerializer(read_only=True)
 
     class Meta:
         model = Mensaje
-        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo']  
+        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo', 'isFromClient']  
+
+class MensajeCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Mensaje
+        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo', 'isFromClient'] 

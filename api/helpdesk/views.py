@@ -6,13 +6,19 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import Categoria, Problema, Prioridad, Ticket, Mensaje
-from .serializers import CategoriaSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer
+from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo
+from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer, MensajeCreateSerializer
+from .models import Ticket, Problema, Categoria
+from django.db.models import Count
 
 class CategoriaList(generics.ListCreateAPIView):
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
 
+class PrioridadList(generics.ListCreateAPIView):
+    queryset = Prioridad.objects.all()
+    serializer_class = PrioridadSerializer
+    
 class CategoryTable(generics.ListAPIView):
     queryset = Ticket.objects.all()
     serializer_class = TableCategorySerializer
@@ -23,13 +29,14 @@ class ProblemaList(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Problema.objects.all()
         categoria_id = self.kwargs.get('categoria_id')
-        if categoria_id is not None:
-            queryset = queryset.filter(categoria_id=categoria_id)
-        return queryset
+        prioridad_id = self.kwargs.get('prioridad_id')
 
-class PrioridadList(generics.ListCreateAPIView):
-    queryset = Prioridad.objects.all()
-    serializer_class = PrioridadSerializer
+        if categoria_id:
+            queryset = queryset.filter(categoria_id=categoria_id)
+        if prioridad_id:
+            queryset = queryset.filter(prioridad_id=prioridad_id)
+
+        return queryset
 
 class TicketList(generics.ListAPIView):
     queryset = Ticket.objects.all()
@@ -40,7 +47,6 @@ class TicketCreate(APIView):
 
     def post(self, request, *args, **kwargs):
         print("TicketCreate post")
-        # El contexto ahora incluye la request para acceso al usuario en el serializer
         serializer = TicketCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -57,7 +63,7 @@ class TicketDetailView(APIView):
 
     def get_object(self, ticket_id):
         try:
-            return Ticket.objects.get(pk=ticket_id)
+            return Ticket.objects.prefetch_related('ticket_archivos').get(pk=ticket_id)
         except Ticket.DoesNotExist:
             return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -65,20 +71,26 @@ class TicketDetailView(APIView):
         ticket = self.get_object(ticket_id)
         if ticket is None:
             return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = TicketSerializer(ticket)
+        serializer = TicketSerializer(ticket, context={'request': request})
         return Response(serializer.data)
 
 class DeleteTicketView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, ticket_id):
+        # Intentar obtener el ticket basado en el ID
         try:
-            ticket = Ticket.objects.get(pk=ticket_id, user=request.user)
+            ticket = Ticket.objects.get(pk=ticket_id)
+        except Ticket.DoesNotExist:
+            return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Verificar si el usuario es el creador del ticket o un administrador
+        if ticket.user == request.user or request.user.is_staff:
             ticket.isDeleted = '1'  # '1' indica que el ticket está eliminado.
             ticket.save()
             return Response({'status': 'success', 'message': 'Ticket marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
-        except Ticket.DoesNotExist:
-            return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         
 class UpdateTicketView(APIView):
     permission_classes = [IsAuthenticated]
@@ -86,14 +98,8 @@ class UpdateTicketView(APIView):
     def put(self, request, ticket_id):
         try:
             ticket = Ticket.objects.get(pk=ticket_id)
-            # Asegúrate de que el usuario tiene permiso para actualizar este ticket.
-            if request.user != ticket.user:
-                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
-
-            # Aquí deberías obtener todos los campos que se esperan actualizar
-            # desde el body de la solicitud, incluyendo la prioridad.
             data = request.data
-            serializer = TicketSerializer(ticket, data=data, partial=True)  # Establecer partial=True para permitir actualizaciones parciales con PUT
+            serializer = TicketSerializer(ticket, data=data, partial=True) 
             if serializer.is_valid():
                 serializer.save()
                 return Response({'status': 'success', 'message': 'Ticket updated.', 'ticket': serializer.data})
@@ -103,9 +109,44 @@ class UpdateTicketView(APIView):
         except Ticket.DoesNotExist:
             return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+class TicketArchivosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, ticket_id):
+        # Verificar si el ticket existe
+        if not Ticket.objects.filter(pk=ticket_id).exists():
+            return Response({"error": "Ticket not found"}, status=404)
+
+        # Obtener los archivos asociados con el ticket
+        archivos = Archivo.objects.filter(ticket_id=ticket_id)
+        if archivos.exists():
+            serializer = ArchivoSerializer(archivos, many=True, context={'request': request})
+            return Response(serializer.data)
+        else:
+            return Response({"message": "No files found for this ticket"}, status=404)
+        
+class TicketStatsView(APIView):
+    """
+    View para obtener estadísticas de los tickets, problemas y categorías.
+    """
+    def get(self, request, *args, **kwargs):
+        total_tickets = Ticket.objects.count()  # Total de tickets
+
+        # Conteo de problemas asociados a los tickets
+        problema_stats = Ticket.objects.values('problema__name').annotate(total=Count('problema')).order_by('-total')
+
+        # Conteo de categorías asociadas a los problemas en los tickets
+        categoria_stats = Ticket.objects.values('problema__categoria__name').annotate(total=Count('problema__categoria')).order_by('-total')
+
+        return Response({
+            'total_tickets': total_tickets,
+            'problema_stats': list(problema_stats),
+            'categoria_stats': list(categoria_stats)
+        })
+        
 class MensajeCreate(generics.CreateAPIView):
     queryset = Mensaje.objects.all()
-    serializer_class = MensajeSerializer
+    serializer_class = MensajeCreateSerializer
 
 class MensajeList(generics.ListAPIView):
     serializer_class = MensajeSerializer

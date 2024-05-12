@@ -13,11 +13,16 @@ urlpatterns = [
     path('tickets/', views.TicketList.as_view(), name='ticket-list'),
     path('tickets/crear/', views.TicketCreate.as_view(), name='ticket-create'),
     path('tickets/table/', views.TicketTable.as_view(), name='ticket-table'),
+
+    path('tickets/<int:ticket_id>/archivos/', views.TicketArchivosView.as_view(), name='ticket-archivos'),
     
     #News
     path('tickets/<int:ticket_id>/', views.TicketDetailView.as_view(), name='ticket-detail'),
     path('tickets/<int:ticket_id>/delete/', views.DeleteTicketView.as_view(), name='delete-ticket'),
     path('tickets/<int:ticket_id>/update-priority/', views.UpdateTicketView.as_view(), name='update-ticket-priority'),
+    path('tickets/<int:ticket_id>/update-status/', views.UpdateTicketView.as_view(), name='update-ticket-status'),
+
+    path('stats/tickets/', views.TicketStatsView.as_view(), name='ticket-stats'),
 
     path('mensajes/crear/', views.MensajeCreate.as_view(), name='mensaje-create'),
     path('tickets/<int:ticket_id>/mensajes/', views.MensajeList.as_view(), name='mensaje-list'),
