@@ -6,12 +6,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo
+from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, User
 from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer, MensajeCreateSerializer
 from .models import Ticket, Problema, Categoria
-from django.db.models import Count
+from django.db.models import Count, Max
+from django.core.mail import send_mail
 
 class CategoriaList(generics.ListCreateAPIView):
+    queryset = Categoria.objects.all()
+    serializer_class = CategoriaSerializer
+
+class CategoriaCreateAPIView(generics.CreateAPIView):
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
 
@@ -50,9 +55,44 @@ class TicketCreate(APIView):
         serializer = TicketCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
+            # CreateEmail.SentEmail(request.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+class CreateEmail(APIView):
+    def SentEmail(data):
+        correos = User.objects.filter(isAdmin = 1)
+        detinatarios = []
+        for correo in correos:
+            detinatarios.append(correo.email)
+        send_mail(data.get('asunto'), data.get('descripcion'), 'soporte@ksp.com.mx', detinatarios, fail_silently=False)
+
+    def SentEmailMessages(subject, message, recipient_list):
+        send_mail(subject, message, 'soporte@ksp.com.mx', recipient_list, fail_silently=False)
+
+    def SentEmailFinishedTicket(ticket):
+        # Obtener correos electrónicos de los administradores
+        admin_users = User.objects.filter(isAdmin=1)
+        admin_emails = [admin.email for admin in admin_users]
+
+        # Correo electrónico del colaborador
+        collaborator_email = ticket.user.email
+
+        # Lista de destinatarios
+        recipient_list = admin_emails + [collaborator_email]
+
+        # Enviar correo electrónico
+        send_mail(
+            subject=f'Ticket #{ticket.id} Resuelto',
+            message=f'El ticket con asunto "{ticket.asunto}" ha sido resuelto.',
+            from_email='soporte@ksp.com.mx',
+            recipient_list=recipient_list,
+            fail_silently=False
+        )
+
+        
+
         
 class TicketTable(generics.ListAPIView):
     queryset = Ticket.objects.all()
@@ -71,26 +111,36 @@ class TicketDetailView(APIView):
         ticket = self.get_object(ticket_id)
         if ticket is None:
             return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Contar los mensajes y obtener el último mensaje
+        total_mensajes = Mensaje.objects.filter(ticket=ticket).count()
+        ultimo_mensaje = Mensaje.objects.filter(ticket=ticket).order_by('-created_at').first()
+        
+        # Determinar quién envió el último mensaje
+        ultimo_remitente = "Administrador" if ultimo_mensaje and ultimo_mensaje.isFromClient == '0' else "Colaborador"
+
         serializer = TicketSerializer(ticket, context={'request': request})
-        return Response(serializer.data)
+        return Response({
+            'ticket_data': serializer.data,
+            'total_mensajes': total_mensajes,
+            'ultimo_remitente': ultimo_remitente
+        })
 
 class DeleteTicketView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, ticket_id):
-        # Intentar obtener el ticket basado en el ID
         try:
             ticket = Ticket.objects.get(pk=ticket_id)
+            # Cambiar el estado a "Resuelto" cuando se finaliza el ticket
+            ticket.status = 'Resuelto'
+            ticket.isDeleted = '1'
+            ticket.save()
+
+            CreateEmail.SentEmailFinishedTicket(ticket)
+            return Response({'status': 'success', 'message': 'Ticket marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
         except Ticket.DoesNotExist:
             return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Verificar si el usuario es el creador del ticket o un administrador
-        if ticket.user == request.user or request.user.is_staff:
-            ticket.isDeleted = '1'  # '1' indica que el ticket está eliminado.
-            ticket.save()
-            return Response({'status': 'success', 'message': 'Ticket marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         
 class UpdateTicketView(APIView):
     permission_classes = [IsAuthenticated]
@@ -144,10 +194,42 @@ class TicketStatsView(APIView):
             'categoria_stats': list(categoria_stats)
         })
         
-class MensajeCreate(generics.CreateAPIView):
-    queryset = Mensaje.objects.all()
-    serializer_class = MensajeCreateSerializer
+class MensajeCreate(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request, *args, **kwargs):
+        serializer = MensajeCreateSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            mensaje = serializer.save()
+
+            # Obtener el ticket asociado al mensaje
+            ticket = mensaje.ticket
+
+            # Determinar los destinatarios del correo electrónico
+            if mensaje.isFromClient == '0':  # El administrador envía un mensaje al cliente
+                recipient_list = [ticket.user.email]
+            else:  # El cliente envía un mensaje al administrador
+                admin_users = User.objects.filter(isAdmin='1')
+                recipient_list = [admin.email for admin in admin_users]
+
+            # Enviar correo electrónico
+            CreateEmail.SentEmailMessages(
+                subject=f'Nuevo mensaje en el ticket #{ticket.id}',
+                message=mensaje.texto,
+                recipient_list=recipient_list
+            )
+
+            # Actualizar el estado del ticket dependiendo de quién envía el mensaje
+            if mensaje.isFromClient == '0':
+                ticket.status = 'Respondido'
+            else:
+                ticket.status = 'En espera'
+            ticket.save()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
 class MensajeList(generics.ListAPIView):
     serializer_class = MensajeSerializer
 

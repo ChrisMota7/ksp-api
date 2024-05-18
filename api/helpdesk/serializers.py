@@ -41,8 +41,6 @@ class TableCategorySerializer(serializers.ModelSerializer):
         model = Categoria
         fields = ('id', 'name')
 
-
-
 class ArchivoSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
 

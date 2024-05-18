@@ -96,6 +96,13 @@ DATABASES = {
     }
 }
 
+#Configuración de correo
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.office365.com'
+EMAIL_PORT = 587  # o el puerto del proveedor SMTP
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'soporte@ksp.com.mx'
+EMAIL_HOST_PASSWORD = 'Temporal02@*/_'
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
