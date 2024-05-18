@@ -72,5 +72,15 @@ class UpdateUserView(APIView):
 
         except User.DoesNotExist:
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+class DeleteUserView(APIView):
+    def put(self, request, user_id):
+        try:
+            user = User.objects.get(pk=user_id)
+            user.isDeleted = '1'
+            user.save()
+            return Response({'status': 'success', 'message': 'User marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
     
    
