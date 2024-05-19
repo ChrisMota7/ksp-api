@@ -42,6 +42,9 @@ class ProblemaList(generics.ListCreateAPIView):
             queryset = queryset.filter(prioridad_id=prioridad_id)
 
         return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save(isDeleted='0')
 
 class UpdateProblemView(APIView):
     def put(self, request, problem_id):
