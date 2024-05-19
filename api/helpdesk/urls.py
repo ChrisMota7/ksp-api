@@ -8,6 +8,8 @@ urlpatterns = [
     path('problemas/', views.ProblemaList.as_view(), name='problemas_list'),
     path('categorias/table/', views.ProblemaList.as_view(), name='categorias_table'),
     path('categorias/crear/', views.CategoriaCreateAPIView.as_view(), name='crear-categoria'),
+    path('problems/<int:problem_id>/update/', views.UpdateProblemView.as_view(), name='update-problem'),
+    path('problems/<int:problem_id>/delete/', views.DeleteProblemView.as_view(), name='delete-problem'),
     
     path('prioridad/', views.PrioridadList.as_view(), name='prioridad_list'),
 

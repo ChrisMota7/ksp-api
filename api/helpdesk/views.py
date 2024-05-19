@@ -43,6 +43,28 @@ class ProblemaList(generics.ListCreateAPIView):
 
         return queryset
 
+class UpdateProblemView(APIView):
+    def put(self, request, problem_id):
+        try:
+            problema = Problema.objects.get(pk=problem_id)
+            serializer = ProblemaSerializer(problema, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Problema.DoesNotExist:
+            return Response({'error': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+class DeleteProblemView(APIView):
+    def put(self, request, problem_id):
+        try:
+            problema = Problema.objects.get(pk=problem_id)
+            problema.isDeleted = '1'
+            problema.save()
+            return Response({'status': 'success', 'message': 'Problem marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        except Problema.DoesNotExist:
+            return Response({'error': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
 class TicketList(generics.ListAPIView):
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
