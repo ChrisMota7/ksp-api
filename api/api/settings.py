@@ -87,7 +87,7 @@ DATABASES = {
         'NAME': 'Helpdesk',
         'USER': 'KSPadmin',
         'PASSWORD': 'Password123',
-        'HOST': 'DESKTOP-E0KA4EF',
+        'HOST': 'DESKTOP-27SLA54',
         'PORT': '',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
@@ -159,9 +159,12 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'headers'
+    'headers',
+    'reason',
 ]
 
+CORS_EXPOSE_HEADERS = [
+    'reason', ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -176,3 +179,24 @@ SIMPLE_JWT = {
 
 MEDIA_URL='/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'handlers': {
+#         'console': {
+#             'class': 'logging.StreamHandler',
+#         },
+#     },
+#     'root': {
+#         'handlers': ['console'],
+#         'level': 'DEBUG',
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['console'],
+#             'level': 'DEBUG',
+#             'propagate': True,
+#         },
+#     },
+# }

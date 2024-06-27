@@ -88,7 +88,7 @@ class TicketCreate(APIView):
 class CreateEmail(APIView):
     def SentEmail(data):
         correos = User.objects.filter(isAdmin = 1)
-        detinatarios = []
+        detinatarios = [correo.email for correo in correos]
         for correo in correos:
             detinatarios.append(correo.email)
         send_mail(data.get('asunto'), data.get('descripcion'), 'soporte@ksp.com.mx', detinatarios, fail_silently=False)
@@ -96,7 +96,7 @@ class CreateEmail(APIView):
     def SentEmailMessages(subject, message, recipient_list):
         send_mail(subject, message, 'soporte@ksp.com.mx', recipient_list, fail_silently=False)
 
-    def SentEmailFinishedTicket(ticket):
+    def SentEmailFinishedTicket(ticket, reason):
         # Obtener correos electrónicos de los administradores
         admin_users = User.objects.filter(isAdmin=1)
         admin_emails = [admin.email for admin in admin_users]
@@ -110,15 +110,12 @@ class CreateEmail(APIView):
         # Enviar correo electrónico
         send_mail(
             subject=f'Ticket #{ticket.id} Resuelto',
-            message=f'El ticket con asunto "{ticket.asunto}" ha sido resuelto.',
+            message=f'El ticket con asunto "{ticket.asunto}" ha sido resuelto. Razón: {reason}',
             from_email='soporte@ksp.com.mx',
             recipient_list=recipient_list,
             fail_silently=False
         )
 
-        
-
-        
 class TicketTable(generics.ListAPIView):
     queryset = Ticket.objects.all()
     serializer_class = TableTicketsSerializer
@@ -150,19 +147,20 @@ class TicketDetailView(APIView):
             'total_mensajes': total_mensajes,
             'ultimo_remitente': ultimo_remitente
         })
-
+        
 class DeleteTicketView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, ticket_id):
         try:
             ticket = Ticket.objects.get(pk=ticket_id)
+            reason = request.data.get('reason', '')
             # Cambiar el estado a "Resuelto" cuando se finaliza el ticket
             ticket.status = 'Resuelto'
             ticket.isDeleted = '1'
             ticket.save()
 
-            CreateEmail.SentEmailFinishedTicket(ticket)
+            CreateEmail.SentEmailFinishedTicket(ticket, reason)
             return Response({'status': 'success', 'message': 'Ticket marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
         except Ticket.DoesNotExist:
             return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)

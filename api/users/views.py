@@ -20,6 +20,67 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import User
 from .serializers import UserSerializer
 
+from django.core.mail import send_mail
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
+
+class SendPasswordResetEmail(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data['email']
+        user = User.objects.filter(email=email).first()
+        if user:
+            token_generator = PasswordResetTokenGenerator()
+            token = token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            url = f"http://localhost:3000/resetPassword?uid={uid}&token={token}"
+            send_mail(
+                'Reestablecer contraseña',
+                f'Da click en el siguiente enlace para recuperar tu contraseña: {url}',
+                'soporte@ksp.com.mx',
+                [email],
+                fail_silently=False,
+            )
+            return Response({"message": "Email sent."}, status=status.HTTP_200_OK)
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ResetPassword(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, uidb64, token):
+        print(f"Received UIDB64: {uidb64}")
+        print(f"Received Token: {token}")
+        
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            print(f"Decoded UID: {uid}")
+            user = User.objects.get(pk=uid)
+            print(f"User found: {user.email}")
+        except (TypeError, ValueError, User.DoesNotExist) as e:
+            print("User not found or invalid UID")
+            print(e)
+            user = None
+
+        if user is not None and PasswordResetTokenGenerator().check_token(user, token):
+            password = request.data.get('password', None)
+            print(f"New Password: {password}")
+            if password:
+                user.set_password(password)
+                user.save()
+                return Response({"message": "Password reset successfully."})
+            else:
+                return Response({"error": "Password not provided."}, status=400)
+        else:
+            print(f"Invalid token or user ID: UID({uidb64}) Token({token})")
+            return Response({"error": "Invalid token or user ID."}, status=400)
+        
 # Create your views here.
 class UserListView(generics.ListAPIView):
     queryset = User.objects.all()
@@ -83,4 +144,3 @@ class DeleteUserView(APIView):
         except User.DoesNotExist:
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
     
-   
