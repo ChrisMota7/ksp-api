@@ -4,6 +4,9 @@ from . import views
 
 urlpatterns = [
     path('categorias/', views.CategoriaList.as_view(), name='categoria_list'),
+    path('categories/<int:category_id>/update/', views.UpdateCategoryView.as_view(), name='update-category'),
+    path('categories/<int:category_id>/delete/', views.DeleteCategoryView.as_view(), name='delete-category'),
+
     path('getProblemByCategory/<int:categoria_id>/', views.ProblemaList.as_view(), name='problema-list-by-category'),
     path('problemas/', views.ProblemaList.as_view(), name='problemas_list'),
     path('categorias/table/', views.ProblemaList.as_view(), name='categorias_table'),
@@ -29,6 +32,17 @@ urlpatterns = [
 
     path('mensajes/crear/', views.MensajeCreate.as_view(), name='mensaje-create'),
     path('tickets/<int:ticket_id>/mensajes/', views.MensajeList.as_view(), name='mensaje-list'),
+
+    path('tipos-incidente/', views.TipoIncidenteListCreateView.as_view(), name='tipo-incidente-list-create'),
+    path('tipos-incidente/<int:tipo_incidente_id>/update/', views.UpdateTipoIncidenteView.as_view(), name='update-tipo-incidente'),
+    path('tipos-incidente/<int:tipo_incidente_id>/delete/', views.DeleteTipoIncidenteView.as_view(), name='delete-tipo-incidente'),
+
+    path('incidentes/', views.IncidenteListCreateView.as_view(), name='incidente-list-create'),
+    path('incidentes/crear/', views.IncidenteCreateView.as_view(), name='incidente-create'),
+    path('incidentes/<int:pk>/', views.IncidenteDetailView.as_view(), name='incidente-detail'),
+    path('incidentes/<int:pk>/delete/', views.MarkIncidenteDeletedView.as_view(), name='mark-incidente-deleted'),
+
+    path('incidentes/<int:incidente_id>/archivos/', views.IncidenteArchivosView.as_view(), name='incidente-archivos'),
 
 ]
 

@@ -87,7 +87,7 @@ DATABASES = {
         'NAME': 'Helpdesk',
         'USER': 'KSPadmin',
         'PASSWORD': 'Password123',
-        'HOST': 'DESKTOP-27SLA54',
+        'HOST': 'DESKTOP-O9UG4GE',
         'PORT': '',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',

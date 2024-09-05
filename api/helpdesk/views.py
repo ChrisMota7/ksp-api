@@ -6,8 +6,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, User
-from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer, MensajeCreateSerializer
+from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, User, Incidente, TipoIncidente, ArchivoIncidente
+from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer, MensajeCreateSerializer, TipoIncidenteSerializer, IncidenteSerializer, IncidenteCreateSerializer, ArchivoIncidenteSerializer
 from .models import Ticket, Problema, Categoria
 from django.db.models import Count, Max
 from django.core.mail import send_mail
@@ -27,6 +27,28 @@ class PrioridadList(generics.ListCreateAPIView):
 class CategoryTable(generics.ListAPIView):
     queryset = Ticket.objects.all()
     serializer_class = TableCategorySerializer
+
+class UpdateCategoryView(APIView):
+    def put(self, request, category_id):
+        try:
+            categoria = Categoria.objects.get(pk=category_id)
+            serializer = CategoriaSerializer(categoria, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Categoria.DoesNotExist:
+            return Response({'error': 'Category not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+class DeleteCategoryView(APIView):
+    def put(self, request, category_id):
+        try:
+            categoria = Categoria.objects.get(pk=category_id)
+            categoria.isDeleted = '1'
+            categoria.save()
+            return Response({'status': 'success', 'message': 'Category marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        except Categoria.DoesNotExist:
+            return Response({'error': 'Category not found.'}, status=status.HTTP_404_NOT_FOUND)
 
 class ProblemaList(generics.ListCreateAPIView):
     serializer_class = ProblemaSerializer
@@ -260,3 +282,98 @@ class MensajeList(generics.ListAPIView):
         ticket_id = self.kwargs['ticket_id']
         return Mensaje.objects.filter(ticket_id=ticket_id)
 
+class TipoIncidenteListCreateView(generics.ListCreateAPIView):
+    queryset = TipoIncidente.objects.all()
+    serializer_class = TipoIncidenteSerializer
+
+class UpdateTipoIncidenteView(APIView):
+    def put(self, request, tipo_incidente_id):
+        try:
+            tipo_incidente = TipoIncidente.objects.get(pk=tipo_incidente_id)
+            data = request.data
+
+            # Actualizar la instancia de Prioridad si se proporciona en los datos
+            if 'prioridad' in data:
+                prioridad_id = data['prioridad']
+                try:
+                    prioridad = Prioridad.objects.get(id=prioridad_id)
+                    tipo_incidente.prioridad = prioridad
+                except Prioridad.DoesNotExist:
+                    return Response({'error': 'Prioridad no encontrada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = TipoIncidenteSerializer(tipo_incidente, data=data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except TipoIncidente.DoesNotExist:
+            return Response({'error': 'Tipo de incidente no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+class DeleteTipoIncidenteView(APIView):
+    def put(self, request, tipo_incidente_id):
+        try:
+            tipo_incidente = TipoIncidente.objects.get(pk=tipo_incidente_id)
+            tipo_incidente.isDeleted = '1'
+            tipo_incidente.save()
+            return Response({'status': 'success', 'message': 'Tipo de incidente marcado como eliminado.'}, status=status.HTTP_204_NO_CONTENT)
+        except TipoIncidente.DoesNotExist:
+            return Response({'error': 'Tipo de incidente no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+class IncidenteListCreateView(generics.ListCreateAPIView):
+    queryset = Incidente.objects.filter(isDeleted='0')
+    serializer_class = IncidenteSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class IncidenteCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = IncidenteCreateSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class IncidenteDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Incidente.objects.all()
+    serializer_class = IncidenteSerializer
+
+    def put(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+class MarkIncidenteDeletedView(APIView):
+    def put(self, request, *args, **kwargs):
+        try:
+            instance = Incidente.objects.get(pk=kwargs['pk'])
+            instance.isDeleted = '1'
+            instance.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Incidente.DoesNotExist:
+            return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+class IncidenteArchivosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, incidente_id):
+        # Verificar si el incidente existe
+        if not Incidente.objects.filter(pk=incidente_id).exists():
+            return Response({"error": "Incidente no encontrado"}, status=404)
+
+        # Obtener los archivos asociados con el incidente
+        archivos = ArchivoIncidente.objects.filter(incidente_id=incidente_id)
+        if archivos.exists():
+            serializer = ArchivoIncidenteSerializer(archivos, many=True, context={'request': request})
+            return Response(serializer.data)
+        else:
+            return Response({"message": "No se encontraron archivos para este incidente"}, status=404)

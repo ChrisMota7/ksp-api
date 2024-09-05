@@ -1,19 +1,33 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-from .models import User
+from .models import User, Empresa
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-        
+
+class EmpresaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Empresa
+        fields = ['id', 'nombre', 'isDeleted']
+
+class TableEmpresaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Empresa
+        fields = ['id', 'nombre', 'isDeleted']
+
 class UserSerializer(serializers.ModelSerializer):
+    empresa = EmpresaSerializer(read_only=True)
+    empresa_id = serializers.PrimaryKeyRelatedField(queryset=Empresa.objects.all(), write_only=True, source='empresa', required=False, allow_null=True)
+    telefono = serializers.CharField(max_length=15, required=False, allow_blank=True)  # Nuevo campo de teléfono
+
     class Meta:
         model = User
-        fields = ['id', 'firstName', 'lastName', 'email', 'password', 'isDeleted', 'isAdmin', 'createdAt']
+        fields = ['id', 'firstName', 'lastName', 'email', 'password', 'telefono', 'isDeleted', 'isAdmin', 'createdAt', 'empresa', 'empresa_id']
         extra_kwargs = {
             'password': {
                 'write_only': True
             }
         }
-    
+
     def create(self, validated_data):
         password = validated_data.pop('password', None)
         instance = self.Meta.model(**validated_data)
@@ -21,7 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
-    
+
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
         for attr, value in validated_data.items():
@@ -30,6 +44,7 @@ class UserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
+
     
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.EMAIL_FIELD if hasattr(User, 'EMAIL_FIELD') else 'email'

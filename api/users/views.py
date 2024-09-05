@@ -17,8 +17,8 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import User
-from .serializers import UserSerializer
+from .models import User, Empresa
+from .serializers import UserSerializer, EmpresaSerializer, TableEmpresaSerializer
 
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -26,7 +26,32 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth import get_user_model
 
+# class EmpresaListCreateView(generics.ListCreateAPIView):
+#     queryset = Empresa.objects.all()
+#     serializer_class = EmpresaSerializer
 
+class EmpresaList(generics.ListCreateAPIView):
+    queryset = Empresa.objects.all()
+    serializer_class = EmpresaSerializer
+
+class EmpresaDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Empresa.objects.all()
+    serializer_class = EmpresaSerializer
+
+class EmpresaTable(generics.ListAPIView):
+    queryset = Empresa.objects.all()
+    serializer_class = TableEmpresaSerializer
+
+class DeleteEmpresaView(APIView):
+    def put(self, request, empresa_id):
+        try:
+            empresa = Empresa.objects.get(pk=empresa_id)
+            empresa.isDeleted = '1'
+            empresa.save()
+            return Response({'status': 'success', 'message': 'Empresa marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        except Empresa.DoesNotExist:
+            return Response({'error': 'Empresa not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
 User = get_user_model()
 
 class SendPasswordResetEmail(APIView):
@@ -81,19 +106,51 @@ class ResetPassword(APIView):
             print(f"Invalid token or user ID: UID({uidb64}) Token({token})")
             return Response({"error": "Invalid token or user ID."}, status=400)
         
-# Create your views here.
 class UserListView(generics.ListAPIView):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        empresa_id = self.request.query_params.get('empresa_id', None)
+        if empresa_id:
+            return User.objects.filter(empresa_id=empresa_id)
+        return User.objects.all()
+    
 class RegisterView(APIView):
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        data = request.data
+        email = data.get('email')
+        telefono = data.get('telefono')  # Obtener el teléfono del request
+
+        # Determinar la empresa basada en el dominio del correo electrónico
+        empresa = None
+        if email:
+            domain = email.split('@')[1]
+            if domain == 'ksp.com.mx':
+                empresa = Empresa.objects.filter(nombre='HDI').first()
+            elif domain == 'ksp-it.com':
+                empresa = Empresa.objects.filter(nombre='Administrativos').first()
+            elif domain == 'ksp-us.com':
+                empresa = Empresa.objects.filter(nombre='Maxi').first()
+            elif domain == 'ksptech.com.mx':
+                empresa = Empresa.objects.filter(nombre='El potosi').first()
+            else:
+                return Response({'error': 'Correo electrónico no permitido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not empresa:
+                return Response({'error': 'Empresa no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+            data['empresa_id'] = empresa.id
+
+        # Incluir el teléfono en los datos
+        if telefono:
+            data['telefono'] = telefono
+
+        serializer = UserSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
-    
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated,]
 
@@ -143,4 +200,3 @@ class DeleteUserView(APIView):
             return Response({'status': 'success', 'message': 'User marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
         except User.DoesNotExist:
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-    

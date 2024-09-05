@@ -3,6 +3,7 @@ from users.models import User
 
 class Categoria(models.Model):
     name = models.CharField(max_length=50,)
+    isDeleted = models.CharField(max_length=1, default=0, null=True, blank=True)
 
 class Prioridad(models.Model):
     name = models.CharField(max_length=50)
@@ -48,3 +49,30 @@ class Mensaje(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE)
     archivo = models.FileField(upload_to='mensaje/', null=True, blank=True)
     isFromClient = models.CharField(max_length=1, null=True, blank=True)
+
+class TipoIncidente(models.Model):
+    name = models.TextField()
+    prioridad = models.ForeignKey(Prioridad, on_delete=models.CASCADE)
+    isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
+
+
+class Incidente(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    tipoIncidente = models.ForeignKey(TipoIncidente, on_delete=models.CASCADE)
+    puesto = models.TextField()
+    descripcion = models.TextField()
+    acciones = models.TextField(null=True, blank=True)
+    personas = models.TextField(null=True, blank=True)
+    detalles = models.TextField(null=True, blank=True)
+    adicionales = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
+
+class ArchivoIncidente(models.Model):
+    ARCHIVO_TIPOS = (
+        ('imagen', 'Imagen'),
+        ('video', 'Video'),
+    )
+    archivo = models.FileField(upload_to='incidentes/')
+    tipo = models.CharField(max_length=10, choices=ARCHIVO_TIPOS)
+    incidente = models.ForeignKey(Incidente, related_name='incidente_archivos', on_delete=models.CASCADE, null=True, blank=True)
