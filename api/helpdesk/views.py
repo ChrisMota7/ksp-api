@@ -11,6 +11,33 @@ from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSeriali
 from .models import Ticket, Problema, Categoria
 from django.db.models import Count, Max
 from django.core.mail import send_mail
+from django.utils.dateparse import parse_date
+
+class FilterTicketsByDateRange(APIView):
+    """
+    Filtra los tickets por un rango de fechas.
+    """
+    def get(self, request):
+        # Obtener los parámetros de fecha desde la solicitud
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if not start_date or not end_date:
+            return Response({"error": "Both start_date and end_date are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir las fechas de string a objetos datetime.date
+        start_date = parse_date(start_date)
+        end_date = parse_date(end_date)
+
+        if start_date > end_date:
+            return Response({"error": "start_date must be before end_date."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Filtrar tickets que están dentro del rango de fechas
+        tickets = Ticket.objects.filter(created_at__date__range=[start_date, end_date])
+
+        # Serializar los datos
+        serializer = TicketSerializer(tickets, many=True)
+        return Response(serializer.data)
 
 class CategoriaList(generics.ListCreateAPIView):
     queryset = Categoria.objects.all()
@@ -102,7 +129,7 @@ class TicketCreate(APIView):
         serializer = TicketCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            # CreateEmail.SentEmail(request.data)
+            CreateEmail.SentEmail(request.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -113,10 +140,10 @@ class CreateEmail(APIView):
         detinatarios = [correo.email for correo in correos]
         for correo in correos:
             detinatarios.append(correo.email)
-        send_mail(data.get('asunto'), data.get('descripcion'), 'soporte@ksp.com.mx', detinatarios, fail_silently=False)
+        send_mail(data.get('asunto'), data.get('descripcion'), 'support@KSP-IT.com', detinatarios, fail_silently=False)
 
     def SentEmailMessages(subject, message, recipient_list):
-        send_mail(subject, message, 'soporte@ksp.com.mx', recipient_list, fail_silently=False)
+        send_mail(subject, message, 'support@KSP-IT.com', recipient_list, fail_silently=False)
 
     def SentEmailFinishedTicket(ticket, reason):
         # Obtener correos electrónicos de los administradores
@@ -133,7 +160,7 @@ class CreateEmail(APIView):
         send_mail(
             subject=f'Ticket #{ticket.id} Resuelto',
             message=f'El ticket con asunto "{ticket.asunto}" ha sido resuelto. Razón: {reason}',
-            from_email='soporte@ksp.com.mx',
+            from_email='support@KSP-IT.com',
             recipient_list=recipient_list,
             fail_silently=False
         )

@@ -20,16 +20,28 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import User, Empresa
 from .serializers import UserSerializer, EmpresaSerializer, TableEmpresaSerializer
 
+from helpdesk.models import Ticket
+from helpdesk.serializers import TicketSerializer
+
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth import get_user_model
 
-# class EmpresaListCreateView(generics.ListCreateAPIView):
-#     queryset = Empresa.objects.all()
-#     serializer_class = EmpresaSerializer
 
+class TicketListByCompany(generics.ListAPIView):
+    serializer_class = TicketSerializer
+    # permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # if user.isAdmin == '1':  # Asumiendo que 'isAdmin' es una propiedad del modelo User
+        empresa_id = self.request.query_params.get('empresa_id')
+        if empresa_id:
+            return Ticket.objects.filter(user__empresa__id=empresa_id)
+        return Ticket.objects.none()
+    
 class EmpresaList(generics.ListCreateAPIView):
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
@@ -68,7 +80,7 @@ class SendPasswordResetEmail(APIView):
             send_mail(
                 'Reestablecer contraseña',
                 f'Da click en el siguiente enlace para recuperar tu contraseña: {url}',
-                'soporte@ksp.com.mx',
+                'support@KSP-IT.com',
                 [email],
                 fail_silently=False,
             )

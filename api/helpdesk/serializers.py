@@ -102,7 +102,7 @@ class TicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ticket
-        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'status', 'isDeleted', 'created_at', 'archivos')
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'status', 'isDeleted', 'created_at', 'archivos', 'id_custom')
 
 class TableTicketsSerializer(serializers.ModelSerializer):
     problema = ProblemaSerializer(read_only=True)
@@ -110,7 +110,7 @@ class TableTicketsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ticket
-        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'isDeleted', 'status', 'created_at',)
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'isDeleted', 'status', 'created_at', 'id_custom')
 
 class MensajeSerializer(serializers.ModelSerializer):
     ticket = TicketSerializer(read_only=True)

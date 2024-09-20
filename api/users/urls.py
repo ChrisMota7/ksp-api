@@ -19,4 +19,6 @@ urlpatterns = [
     path('empresas/table/', views.EmpresaTable.as_view(), name='empresa-table'),
     path('empresas/<int:pk>/', views.EmpresaDetailView.as_view(), name='empresa-detail'),
     path('empresas/<int:empresa_id>/delete/', views.DeleteEmpresaView.as_view(), name='delete-empresa'),
+
+    path('tickets/by_company/', views.TicketListByCompany.as_view(), name='tickets-by-company'),
 ]

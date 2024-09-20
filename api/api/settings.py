@@ -77,7 +77,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -96,13 +95,22 @@ DATABASES = {
     }
 }
 
+# #Configuración de correo
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.office365.com'
+# EMAIL_PORT = 587  # o el puerto del proveedor SMTP
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'soporte@ksp.com.mx'
+# EMAIL_HOST_PASSWORD = 'Temporal02@*/_'
+
 #Configuración de correo
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.office365.com'
 EMAIL_PORT = 587  # o el puerto del proveedor SMTP
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'soporte@ksp.com.mx'
-EMAIL_HOST_PASSWORD = 'Temporal02@*/_'
+EMAIL_HOST_USER = 'support@KSP-IT.com'
+EMAIL_HOST_PASSWORD = 'Soporte@*/_'
+DEFAULT_FROM_EMAIL = 'support@KSP-IT.com'
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -173,7 +181,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-"ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+"ACCESS_TOKEN_LIFETIME": timedelta(minutes=480),
 "USER_ID_FIELD": "id"
 }
 

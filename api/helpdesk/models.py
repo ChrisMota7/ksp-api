@@ -31,6 +31,28 @@ class Ticket(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
 
+    id_custom = models.CharField(max_length=10, unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.id_custom:  # Si aún no tiene un ID personalizado, se genera
+            # Obtener las primeras 3 letras de la categoría relacionada al problema
+            category_prefix = self.problema.categoria.name[:3].upper()  # Ajusta según cómo obtienes la categoría
+            
+            # Obtener el último ticket en esta categoría y generar el siguiente ID
+            last_ticket = Ticket.objects.filter(problema__categoria=self.problema.categoria).order_by('id_custom').last()
+            
+            if last_ticket and last_ticket.id_custom:
+                # Extraer la parte numérica del último ID y sumarle 1
+                next_id = int(last_ticket.id_custom[-1]) + 1
+            else:
+                # Si es el primer ticket de esta categoría, empezar desde 1
+                next_id = 1
+            
+            # Asignar el nuevo ID personalizado
+            self.id_custom = f"{category_prefix}{next_id}"
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.asunto
 
@@ -54,7 +76,6 @@ class TipoIncidente(models.Model):
     name = models.TextField()
     prioridad = models.ForeignKey(Prioridad, on_delete=models.CASCADE)
     isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
-
 
 class Incidente(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

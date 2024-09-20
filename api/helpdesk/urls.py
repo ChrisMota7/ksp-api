@@ -44,6 +44,8 @@ urlpatterns = [
 
     path('incidentes/<int:incidente_id>/archivos/', views.IncidenteArchivosView.as_view(), name='incidente-archivos'),
 
+    path('tickets/filter_by_date_range/', views.FilterTicketsByDateRange.as_view(), name='filter-tickets-by-date-range'),
+
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
