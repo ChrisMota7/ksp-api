@@ -54,13 +54,6 @@ class ArchivoSerializer(serializers.ModelSerializer):
             return self.context['request'].build_absolute_uri(obj.archivo.url)
         return None
 
-    def get_file(self, obj):
-        if obj.archivo:
-            request = self.context.get('request')
-            response = request.get(obj.archivo.url, stream=True)
-            return FileResponse(response.raw, as_attachment=True, filename=obj.archivo.name)
-        return None
-
 class TicketCreateSerializer(serializers.ModelSerializer):    
     archivos = serializers.ListField(
         write_only=True,
@@ -126,6 +119,7 @@ class MensajeCreateSerializer(serializers.ModelSerializer):
         fields = ['id', 'texto', 'created_at', 'ticket', 'archivo', 'isFromClient'] 
 
 class TipoIncidenteSerializer(serializers.ModelSerializer):
+    prioridad = serializers.PrimaryKeyRelatedField(queryset=Prioridad.objects.all())
     prioridad = PrioridadSerializer(read_only=True)
 
     class Meta:

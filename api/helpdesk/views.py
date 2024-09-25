@@ -12,6 +12,8 @@ from .models import Ticket, Problema, Categoria
 from django.db.models import Count, Max
 from django.core.mail import send_mail
 from django.utils.dateparse import parse_date
+from django.shortcuts import get_object_or_404
+
 
 class FilterTicketsByDateRange(APIView):
     """
@@ -128,23 +130,52 @@ class TicketCreate(APIView):
         print("TicketCreate post")
         serializer = TicketCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save()
-            CreateEmail.SentEmail(request.data)
+            ticket = serializer.save()
+            CreateEmail.sent_email_ticket_created(ticket)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 class CreateEmail(APIView):
-    def SentEmail(data):
-        correos = User.objects.filter(isAdmin = 1)
-        detinatarios = [correo.email for correo in correos]
-        for correo in correos:
-            detinatarios.append(correo.email)
-        send_mail(data.get('asunto'), data.get('descripcion'), 'support@KSP-IT.com', detinatarios, fail_silently=False)
+    # class CreateEmail(APIView):
+    @staticmethod
+    def sent_email_ticket_created(ticket):
+        correos = User.objects.filter(isAdmin=1)
+        destinatarios = [correo.email for correo in correos]
 
+        # Enviar el correo con el asunto y descripción del ticket
+        subject = f"Nuevo Ticket #{ticket.id} - {ticket.asunto}"
+        message = f"Se ha creado un nuevo ticket con los siguientes detalles:\n\nAsunto: {ticket.asunto}\nDescripción: {ticket.descripcion}"
+
+        send_mail(subject, message, 'support@KSP-IT.com', destinatarios, fail_silently=False)
+
+    @staticmethod
+    def sent_email_incidente_created(incidente):
+        correos = User.objects.filter(isAdmin=1)
+        destinatarios = [correo.email for correo in correos]
+
+        # Enviar el correo con los detalles del incidente de seguridad
+        subject = f"Nuevo Incidente de Seguridad #{incidente.id}"
+        message = f"Se ha reportado un nuevo incidente de seguridad con los siguientes detalles:\n\nDescripción: {incidente.descripcion}"
+
+        send_mail(subject, message, 'support@KSP-IT.com', destinatarios, fail_silently=False)
+
+    @staticmethod
+    def sent_email_incidente_deleted(incidente):
+        correos = User.objects.filter(isAdmin=1)
+        destinatarios = [correo.email for correo in correos]
+
+        # Enviar el correo notificando la eliminación del incidente
+        subject = f"Incidente de Seguridad #{incidente.id} Eliminado"
+        message = f"El incidente de seguridad con ID {incidente.id} ha sido eliminado."
+
+        send_mail(subject, message, 'support@KSP-IT.com', destinatarios, fail_silently=False)
+
+    @staticmethod
     def SentEmailMessages(subject, message, recipient_list):
         send_mail(subject, message, 'support@KSP-IT.com', recipient_list, fail_silently=False)
 
+    @staticmethod
     def SentEmailFinishedTicket(ticket, reason):
         # Obtener correos electrónicos de los administradores
         admin_users = User.objects.filter(isAdmin=1)
@@ -359,7 +390,9 @@ class IncidenteCreateView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = IncidenteCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save()
+            incidente = serializer.save()
+            # Enviar correo electrónico cuando se cree un incidente
+            CreateEmail.sent_email_incidente_created(incidente)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -385,6 +418,7 @@ class MarkIncidenteDeletedView(APIView):
             instance = Incidente.objects.get(pk=kwargs['pk'])
             instance.isDeleted = '1'
             instance.save()
+            CreateEmail.sent_email_incidente_deleted(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Incidente.DoesNotExist:
             return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
