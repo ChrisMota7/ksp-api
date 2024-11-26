@@ -308,6 +308,10 @@ class MensajeCreate(APIView):
             # Obtener el ticket asociado al mensaje
             ticket = mensaje.ticket
 
+            if ticket.first_response_at is None:
+                ticket.first_response_at = mensaje.created_at  # Usamos la fecha de creación del mensaje
+                ticket.save()
+
             # Determinar los destinatarios del correo electrónico
             if mensaje.isFromClient == '0':  # El administrador envía un mensaje al cliente
                 recipient_list = [ticket.user.email]

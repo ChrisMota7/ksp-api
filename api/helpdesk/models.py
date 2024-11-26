@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import User
+from django.utils import timezone
 
 class Categoria(models.Model):
     name = models.CharField(max_length=50,)
@@ -29,32 +30,18 @@ class Ticket(models.Model):
         blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
     isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
-
-    id_custom = models.CharField(max_length=10, unique=True, blank=True)
-
-    def save(self, *args, **kwargs):
-        if not self.id_custom:  # Si aún no tiene un ID personalizado, se genera
-            # Obtener las primeras 3 letras de la categoría relacionada al problema
-            category_prefix = self.problema.categoria.name[:3].upper()  # Ajusta según cómo obtienes la categoría
-            
-            # Obtener el último ticket en esta categoría y generar el siguiente ID
-            last_ticket = Ticket.objects.filter(problema__categoria=self.problema.categoria).order_by('id_custom').last()
-            
-            if last_ticket and last_ticket.id_custom:
-                # Extraer la parte numérica del último ID y sumarle 1
-                next_id = int(last_ticket.id_custom[-1]) + 1
-            else:
-                # Si es el primer ticket de esta categoría, empezar desde 1
-                next_id = 1
-            
-            # Asignar el nuevo ID personalizado
-            self.id_custom = f"{category_prefix}{next_id}"
-
-        super().save(*args, **kwargs)
+    first_response_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.asunto
+    
+    def save(self, *args, **kwargs):
+        # Si el estado cambia a "Resuelto" y aún no tiene fecha de cierre, establecer la fecha
+        if self.status == "Resuelto" and not self.closed_at:
+            self.closed_at = timezone.now()
+        super().save(*args, **kwargs)
 
 class Archivo(models.Model):
     ARCHIVO_TIPOS = (

@@ -84,9 +84,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'mssql',
         'NAME': 'Helpdesk',
-        'USER': 'KSPadmin',
-        'PASSWORD': 'Password123',
-        'HOST': 'DESKTOP-O9UG4GE',
+        'USER': 'sa',
+        'PASSWORD': 'Ksp2024*',
+        'HOST': 'USR\\SQLEXPRESS',
         'PORT': '',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
@@ -109,7 +109,7 @@ EMAIL_HOST = 'smtp.office365.com'
 EMAIL_PORT = 587  # o el puerto del proveedor SMTP
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'support@KSP-IT.com'
-EMAIL_HOST_PASSWORD = 'Soporte@*/_'
+EMAIL_HOST_PASSWORD = 'Ksp2024*'
 DEFAULT_FROM_EMAIL = 'support@KSP-IT.com'
 
 # Password validation
@@ -181,7 +181,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-"ACCESS_TOKEN_LIFETIME": timedelta(minutes=480),
+"ACCESS_TOKEN_LIFETIME": timedelta(minutes=120),
 "USER_ID_FIELD": "id"
 }
 
