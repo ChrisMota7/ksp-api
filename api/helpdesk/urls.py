@@ -33,6 +33,8 @@ urlpatterns = [
     path('mensajes/crear/', views.MensajeCreate.as_view(), name='mensaje-create'),
     path('tickets/<int:ticket_id>/mensajes/', views.MensajeList.as_view(), name='mensaje-list'),
 
+    path('mensajes/<int:mensaje_id>/archivos/', views.MensajeArchivosView.as_view(), name='mensaje-archivos'),
+
     path('tipos-incidente/', views.TipoIncidenteListCreateView.as_view(), name='tipo-incidente-list-create'),
     path('tipos-incidente/<int:tipo_incidente_id>/update/', views.UpdateTipoIncidenteView.as_view(), name='update-tipo-incidente'),
     path('tipos-incidente/<int:tipo_incidente_id>/delete/', views.DeleteTipoIncidenteView.as_view(), name='delete-tipo-incidente'),
@@ -45,6 +47,8 @@ urlpatterns = [
     path('incidentes/<int:incidente_id>/archivos/', views.IncidenteArchivosView.as_view(), name='incidente-archivos'),
 
     path('tickets/filter_by_date_range/', views.FilterTicketsByDateRange.as_view(), name='filter-tickets-by-date-range'),
+
+    path('razones-cierre/', views.RazonCierreList.as_view(), name='razones-cierre'),
 
 ]
 

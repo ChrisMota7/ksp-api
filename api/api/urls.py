@@ -20,6 +20,8 @@ from django.conf.urls.static import static
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import CustomTokenObtainPairView
+from users.views import AzureADCallbackView
+
 
 urlpatterns = [
     
@@ -27,6 +29,8 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('admin/', admin.site.urls),
     path('user/', include('users.urls')),
+    path('auth/callback/', AzureADCallbackView.as_view(), name='auth-callback'),
+
     path('helpdesk/', include('helpdesk.urls')),
 ] 
 if settings.DEBUG: 

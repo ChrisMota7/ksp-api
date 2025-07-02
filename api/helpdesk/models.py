@@ -17,6 +17,14 @@ class Problema(models.Model):
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
     isDeleted = models.CharField(max_length=1, default=0, null=True, blank=True)
     prioridad = models.ForeignKey(Prioridad, on_delete=models.CASCADE) 
+    
+class RazonCierre(models.Model):
+    razon = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.razon
+        
+        
 
 class Ticket(models.Model):
     asunto = models.TextField()
@@ -31,8 +39,9 @@ class Ticket(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     closed_at = models.DateTimeField(null=True, blank=True)
-    isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
     first_response_at = models.DateTimeField(null=True, blank=True)
+    isDeleted = models.CharField(max_length=1, default='0', null=True, blank=True)
+    razones_cierre = models.ManyToManyField(RazonCierre, blank=True)
 
     def __str__(self):
         return self.asunto
@@ -58,6 +67,19 @@ class Mensaje(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE)
     archivo = models.FileField(upload_to='mensaje/', null=True, blank=True)
     isFromClient = models.CharField(max_length=1, null=True, blank=True)
+
+class ArchivoMensaje(models.Model):
+    ARCHIVO_TIPOS = (
+        ('imagen', 'Imagen'),
+        ('video', 'Video'),
+        ('documento', 'Documento'),
+    )
+    archivo = models.FileField(upload_to='mensaje/')
+    tipo = models.CharField(max_length=10, choices=ARCHIVO_TIPOS)
+    mensaje = models.ForeignKey('Mensaje', related_name='archivos', on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return self.archivo.url
 
 class TipoIncidente(models.Model):
     name = models.TextField()

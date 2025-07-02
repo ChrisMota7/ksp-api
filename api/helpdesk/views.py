@@ -6,15 +6,24 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, User, Incidente, TipoIncidente, ArchivoIncidente
-from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer, MensajeCreateSerializer, TipoIncidenteSerializer, IncidenteSerializer, IncidenteCreateSerializer, ArchivoIncidenteSerializer
-from .models import Ticket, Problema, Categoria
+from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, User, Incidente, TipoIncidente, ArchivoIncidente, RazonCierre
+from .serializers import CategoriaSerializer, ArchivoSerializer, ProblemaSerializer, PrioridadSerializer, TicketSerializer, MensajeSerializer, TicketCreateSerializer, TableTicketsSerializer, TableCategorySerializer, MensajeCreateSerializer, TipoIncidenteSerializer, IncidenteSerializer, IncidenteCreateSerializer, ArchivoIncidenteSerializer, RazonCierreSerializer, ArchivoMensajeSerializer
+from .models import Ticket, Problema, Categoria, ArchivoMensaje
 from django.db.models import Count, Max
 from django.core.mail import send_mail
 from django.utils.dateparse import parse_date
 from django.shortcuts import get_object_or_404
+from django.core.mail import EmailMessage
+import os
+from django.core.mail import send_mail
+from django.utils.timezone import localtime
 
-
+class RazonCierreList(APIView):
+    def get(self, request):
+        razones = RazonCierre.objects.all()
+        serializer = RazonCierreSerializer(razones, many=True)
+        return Response(serializer.data)
+        
 class FilterTicketsByDateRange(APIView):
     """
     Filtra los tickets por un rango de fechas.
@@ -143,22 +152,95 @@ class CreateEmail(APIView):
         correos = User.objects.filter(isAdmin=1)
         destinatarios = [correo.email for correo in correos]
 
-        # Enviar el correo con el asunto y descripción del ticket
-        subject = f"Nuevo Ticket #{ticket.id} - {ticket.asunto}"
-        message = f"Se ha creado un nuevo ticket con los siguientes detalles:\n\nAsunto: {ticket.asunto}\nDescripción: {ticket.descripcion}"
+        email_usuario = ticket.user.email
 
-        send_mail(subject, message, 'support@KSP-IT.com', destinatarios, fail_silently=False)
+        subject = f"📩 Nuevo Ticket #{ticket.id} - {ticket.asunto}"
+        message = f"""
+        <html>
+        <body>
+            <h2>🎫 Nuevo Ticket Creado</h2>
+            <p><strong>🆔 Ticket ID:</strong> {ticket.id}</p>
+            <p><strong>📝 Asunto:</strong> {ticket.asunto}</p>
+            <p><strong>📝 Descripción:</strong> {ticket.descripcion}</p>
+            <p><strong>👤 Creado por:</strong> {email_usuario}</p>
+            <p><strong>📅 Fecha de creación:</strong> {localtime(ticket.created_at).strftime('%Y-%m-%d %H:%M:%S')}</p>
+
+            <p>🔗 <a href="https://soporte.ksp-platforms.com/" target="_blank">Accede a Helpdesk</a> para ver más detalles.</p>
+
+            <hr>
+            <p>📢 <strong>Importante: No responder a este correo</strong></p>
+            <p>⚠️Este correo es únicamente informativo. Todas las consultas y respuestas deben gestionarse a través de la plataforma <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+            <p>Por favor, <strong>NO responda a este correo</strong>, ya que no será atendido. Para continuar con la conversación o realizar cualquier solicitud, inicie sesión en <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+
+            <p>Gracias por su comprensión y colaboración.</p>
+        </body>
+        </html>
+        """
+
+        send_mail(subject, '', 'support@KSP-IT.com', destinatarios, fail_silently=False, html_message=message)
 
     @staticmethod
     def sent_email_incidente_created(incidente):
         correos = User.objects.filter(isAdmin=1)
         destinatarios = [correo.email for correo in correos]
 
-        # Enviar el correo con los detalles del incidente de seguridad
-        subject = f"Nuevo Incidente de Seguridad #{incidente.id}"
-        message = f"Se ha reportado un nuevo incidente de seguridad con los siguientes detalles:\n\nDescripción: {incidente.descripcion}"
+        usuario = incidente.user
+        nombre_usuario = f"{usuario.first_name} {usuario.last_name}" if usuario.first_name else usuario.email
+        email_usuario = usuario.email
+        telefono_usuario = usuario.telefono if usuario.telefono else "No disponible"
 
-        send_mail(subject, message, 'support@KSP-IT.com', destinatarios, fail_silently=False)
+        tipo_incidente = incidente.tipoIncidente.name if incidente.tipoIncidente else "No especificado"
+
+        mensaje = f"""
+        <html>
+        <body>
+            <h2>🔔 Nuevo Incidente de Seguridad Reportado</h2>
+            <p><strong>📅 Fecha y hora del incidente:</strong> {localtime(incidente.created_at).strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <p><strong>👤 Reportado por:</strong> {nombre_usuario}</p>
+            <p><strong>📧 Correo electrónico:</strong> {email_usuario}</p>
+            <p><strong>📞 Teléfono:</strong> {telefono_usuario}</p>
+            <p><strong>🏢 Área/Puesto:</strong> {incidente.puesto}</p>
+
+            <p><strong>⚠ Tipo de incidente:</strong> {tipo_incidente}</p>
+            <p><strong>📝 Descripción:</strong> {incidente.descripcion}</p>
+            <p><strong>🛠 Acciones tomadas:</strong> {incidente.acciones if incidente.acciones else 'No especificado'}</p>
+            <p><strong>👥 Personas involucradas:</strong> {incidente.personas if incidente.personas else 'No especificado'}</p>
+            <p><strong>📌 Detalles adicionales:</strong> {incidente.detalles if incidente.detalles else 'No especificado'}</p>
+            <p><strong>➕ Acciones adicionales:</strong> {incidente.adicionales if incidente.adicionales else 'No especificado'}</p>
+            <p><strong>🗂 Evidencia adjunta:</strong> {'Sí' if ArchivoIncidente.objects.filter(incidente=incidente).exists() else 'No hay archivos adjuntos'}</p>
+
+            <p>🔗 <a href="https://soporte.ksp-platforms.com/" target="_blank">Accede a Helpdesk</a> para gestionar este incidente.</p>
+
+            <hr>
+            <p>📢 <strong>Importante: No responder a este correo</strong></p>
+            <p>⚠️Este correo es únicamente informativo. Todas las consultas y respuestas deben gestionarse a través de la plataforma <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+            <p>Por favor, <strong>NO responda a este correo</strong>, ya que no será atendido. Para continuar con la conversación o realizar cualquier solicitud, inicie sesión en <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+
+            <p>Gracias por su comprensión y colaboración.</p>
+        </body>
+        </html>
+        """
+
+        email = EmailMessage(
+            subject=f"🔴 Nuevo Incidente de Seguridad #{incidente.id}",
+            body=mensaje,
+            from_email='support@KSP-IT.com',
+            to=destinatarios,
+        )
+        email.content_subtype = "html"
+
+        # Adjuntar archivos del incidente
+        archivos = ArchivoIncidente.objects.filter(incidente=incidente)
+        for archivo in archivos:
+            if archivo.archivo:
+                ruta_archivo = archivo.archivo.path
+                if os.path.exists(ruta_archivo):
+                    email.attach_file(ruta_archivo)
+
+        # Enviar correo
+        email.send(fail_silently=False)
+
+
 
     @staticmethod
     def sent_email_incidente_deleted(incidente):
@@ -166,35 +248,69 @@ class CreateEmail(APIView):
         destinatarios = [correo.email for correo in correos]
 
         # Enviar el correo notificando la eliminación del incidente
-        subject = f"Incidente de Seguridad #{incidente.id} Eliminado"
-        message = f"El incidente de seguridad con ID {incidente.id} ha sido eliminado."
+        subject = f"Incidente de Seguridad #{incidente.id} reauelto"
+        message = f"El incidente de seguridad con ID {incidente.id} ha sido restuelto."
 
         send_mail(subject, message, 'support@KSP-IT.com', destinatarios, fail_silently=False)
 
     @staticmethod
-    def SentEmailMessages(subject, message, recipient_list):
-        send_mail(subject, message, 'support@KSP-IT.com', recipient_list, fail_silently=False)
+    def SentEmailMessages(subject, message, recipient_list, user_email):
+        full_message = f"""
+        <html>
+        <body>
+            <p>✉ <strong>Mensaje:</strong> {message}</p>
+            <p>👤 <strong>Ticket del usuario:</strong> {user_email}</p>
+
+            <p>🔗 <a href="https://soporte.ksp-platforms.com/" target="_blank">Accede a Helpdesk</a> para revisar el ticket.</p>
+
+            <hr>
+            <p>📢 <strong>Importante: No responder a este correo</strong></p>
+            <p>⚠️Este correo es únicamente informativo. Todas las consultas y respuestas deben gestionarse a través de la plataforma <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+            <p>Por favor, <strong>NO responda a este correo</strong>, ya que no será atendido. Para continuar con la conversación o realizar cualquier solicitud, inicie sesión en <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+
+            <p>Gracias por su comprensión y colaboración.</p>
+        </body>
+        </html>
+        """
+
+        send_mail(subject, '', 'support@KSP-IT.com', recipient_list, fail_silently=False, html_message=full_message)
 
     @staticmethod
-    def SentEmailFinishedTicket(ticket, reason):
-        # Obtener correos electrónicos de los administradores
+    def SentEmailFinishedTicket(ticket, user_closing):
         admin_users = User.objects.filter(isAdmin=1)
         admin_emails = [admin.email for admin in admin_users]
-
-        # Correo electrónico del colaborador
         collaborator_email = ticket.user.email
-
-        # Lista de destinatarios
         recipient_list = admin_emails + [collaborator_email]
 
-        # Enviar correo electrónico
+        message = f"""
+        <html>
+        <body>
+            <h2>✅ Ticket #{ticket.id} Resuelto</h2>
+            <p><strong>📝 Asunto:</strong> {ticket.asunto}</p>
+            <p><strong>📝 Razones:</strong> {", ".join([razon.razon for razon in ticket.razones_cierre.all()])}</p>
+            <p><strong>👤 Cerrado por:</strong> {user_closing.get_full_name()} ({user_closing.email})</p>
+
+            <p>🔗 <a href="https://soporte.ksp-platforms.com/" target="_blank">Accede a Helpdesk</a> para más información.</p>
+
+            <hr>
+            <p>📢 <strong>Importante: No responder a este correo</strong></p>
+            <p>⚠️Este correo es únicamente informativo. Todas las consultas y respuestas deben gestionarse a través de la plataforma <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+            <p>Por favor, <strong>NO responda a este correo</strong>, ya que no será atendido. Para continuar con la conversación o realizar cualquier solicitud, inicie sesión en <a href="https://soporte.ksp-platforms.com/" target="_blank"><strong>Helpdesk</strong></a>.</p>
+
+            <p>Gracias por su comprensión y colaboración.</p>
+        </body>
+        </html>
+        """
+
         send_mail(
-            subject=f'Ticket #{ticket.id} Resuelto',
-            message=f'El ticket con asunto "{ticket.asunto}" ha sido resuelto. Razón: {reason}',
+            subject=f'Ticket #{ticket.id} Resuelto ✅',
+            message='',
             from_email='support@KSP-IT.com',
             recipient_list=recipient_list,
-            fail_silently=False
+            fail_silently=False,
+            html_message=message
         )
+
 
 class TicketTable(generics.ListAPIView):
     queryset = Ticket.objects.all()
@@ -234,14 +350,24 @@ class DeleteTicketView(APIView):
     def put(self, request, ticket_id):
         try:
             ticket = Ticket.objects.get(pk=ticket_id)
-            reason = request.data.get('reason', '')
-            # Cambiar el estado a "Resuelto" cuando se finaliza el ticket
+            razones_ids = request.data.get('razones_cierre_ids', [])
+            
+            # Asegúrate de que razones_ids sea una lista
+            if not isinstance(razones_ids, list):
+                razones_ids = [razones_ids]
+            
+            user_closing = request.user  # Usuario que cerró el ticket
+
+            # Cambiar estado del ticket a Resuelto
             ticket.status = 'Resuelto'
             ticket.isDeleted = '1'
+            ticket.razones_cierre.set(RazonCierre.objects.filter(id__in=razones_ids))
             ticket.save()
 
-            CreateEmail.SentEmailFinishedTicket(ticket, reason)
-            return Response({'status': 'success', 'message': 'Ticket marked as deleted.'}, status=status.HTTP_204_NO_CONTENT)
+            # Enviar correo con información adicional
+            CreateEmail.SentEmailFinishedTicket(ticket, user_closing)
+
+            return Response({'status': 'success', 'message': 'Ticket closed successfully.'}, status=status.HTTP_200_OK)
         except Ticket.DoesNotExist:
             return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -301,41 +427,62 @@ class MensajeCreate(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
+        print("Datos recibidos:", request.data)  # 📌 Verifica qué datos llegan
+        print("Archivos recibidos:", request.FILES) 
+
         serializer = MensajeCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             mensaje = serializer.save()
 
-            # Obtener el ticket asociado al mensaje
             ticket = mensaje.ticket
-
             if ticket.first_response_at is None:
-                ticket.first_response_at = mensaje.created_at  # Usamos la fecha de creación del mensaje
+                ticket.first_response_at = mensaje.created_at
                 ticket.save()
 
-            # Determinar los destinatarios del correo electrónico
+            # 📌 Obtener el correo del usuario que creó el ticket
+            user_email = ticket.user.email  # ✅ Corrección aquí
+
+            # 📌 Determinar los destinatarios del correo electrónico
             if mensaje.isFromClient == '0':  # El administrador envía un mensaje al cliente
                 recipient_list = [ticket.user.email]
             else:  # El cliente envía un mensaje al administrador
                 admin_users = User.objects.filter(isAdmin='1')
                 recipient_list = [admin.email for admin in admin_users]
 
-            # Enviar correo electrónico
+            # 📌 Enviar correo electrónico con la corrección
             CreateEmail.SentEmailMessages(
-                subject=f'Nuevo mensaje en el ticket #{ticket.id}',
+                subject=f'📩Nuevo mensaje en el ticket #{ticket.id}📩',
                 message=mensaje.texto,
-                recipient_list=recipient_list
+                recipient_list=recipient_list,
+                user_email=user_email  # ✅ Se usa el email del usuario del ticket
             )
 
-            # Actualizar el estado del ticket dependiendo de quién envía el mensaje
-            if mensaje.isFromClient == '0':
-                ticket.status = 'Respondido'
-            else:
-                ticket.status = 'En espera'
+            # 📌 Actualizar el estado del ticket dependiendo de quién envía el mensaje
+            ticket.status = 'Respondido' if mensaje.isFromClient == '0' else 'En espera'
             ticket.save()
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
+            print("Errores en el serializer:", serializer.errors)  # 📌 DEBUG
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MensajeArchivosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, mensaje_id):
+        # Verificar si el mensaje existe
+        if not Mensaje.objects.filter(pk=mensaje_id).exists():
+            return Response({"error": "Mensaje no encontrado"}, status=404)
+
+        # Obtener los archivos asociados con el mensaje
+        archivos = ArchivoMensaje.objects.filter(mensaje_id=mensaje_id)
+        if archivos.exists():
+            serializer = ArchivoMensajeSerializer(archivos, many=True, context={'request': request})
+            return Response(serializer.data)
+        else:
+            return Response({"message": "No se encontraron archivos para este mensaje"}, status=404)
+
         
 class MensajeList(generics.ListAPIView):
     serializer_class = MensajeSerializer

@@ -12,6 +12,15 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Esto carga las variables del archivo .env
+
+AZURE_AD_CLIENT_ID = os.getenv("AZURE_AD_CLIENT_ID")
+AZURE_AD_TENANT_ID = os.getenv("AZURE_AD_TENANT_ID")
+AZURE_AD_CLIENT_SECRET = os.getenv("AZURE_AD_CLIENT_SECRET")
+AZURE_AD_REDIRECT_URI = os.getenv("AZURE_AD_REDIRECT_URI")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -86,7 +95,7 @@ DATABASES = {
         'NAME': 'Helpdesk',
         'USER': 'sa',
         'PASSWORD': 'Ksp2024*',
-        'HOST': 'USR\\SQLEXPRESS',
+        'HOST': 'Chris',
         'PORT': '',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
@@ -109,7 +118,7 @@ EMAIL_HOST = 'smtp.office365.com'
 EMAIL_PORT = 587  # o el puerto del proveedor SMTP
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'support@KSP-IT.com'
-EMAIL_HOST_PASSWORD = 'Ksp2024*'
+EMAIL_HOST_PASSWORD = 'Ksp2025*'
 DEFAULT_FROM_EMAIL = 'support@KSP-IT.com'
 
 # Password validation
@@ -136,7 +145,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 

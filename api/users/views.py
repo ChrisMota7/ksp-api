@@ -28,7 +28,58 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from django.conf import settings
+from django.views import View
+from .azure_auth import get_azure_token, get_user_profile
 
+def check_env(request):
+    return JsonResponse({
+        "CLIENT_ID": settings.AZURE_AD_CLIENT_ID,
+        "TENANT_ID": settings.AZURE_AD_TENANT_ID,
+        "REDIRECT_URI": settings.AZURE_AD_REDIRECT_URI
+    })
+
+class AzureADCallbackView(View):
+    def get(self, request):
+        code = request.GET.get('code')
+        if not code:
+            return JsonResponse({'error': 'No se recibió el código de autorización'}, status=400)
+
+        token_data = get_azure_token(code)
+        access_token = token_data.get('access_token')
+
+        if not access_token:
+            return JsonResponse({'error': 'No se obtuvo token'}, status=400)
+
+        user_data = get_user_profile(access_token)
+        print("USER DATA COMPLETO:")
+        print(user_data)
+
+        email = (user_data.get('mail') or user_data.get('userPrincipalName') or "").strip().lower()
+        user = User.objects.filter(email__iexact=email).first()
+
+        print("EMAIL desde Azure:", email)
+
+
+        user = User.objects.filter(email=email).first()
+
+        if user:
+            # ✅ Generar token JWT del sistema
+            refresh = RefreshToken.for_user(user)
+
+            return JsonResponse({
+                'status': 'ok',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'name': user.firstName + ' ' + user.lastName,
+                },
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            })
+        else:
+            return JsonResponse({'error': 'El usuario no existe en el sistema'}, status=403)
 
 class TicketListByCompany(generics.ListAPIView):
     serializer_class = TicketSerializer

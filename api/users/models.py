@@ -17,7 +17,8 @@ class User(AbstractUser):
     isAdmin = models.CharField(max_length=1)
     createdAt = models.DateTimeField(auto_now_add=True)
     username = None
+    activeDirectory = models.CharField(max_length=255, null=True, blank=True)
     empresa = models.ForeignKey(Empresa, on_delete=models.SET_NULL, null=True, blank=True)
-
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

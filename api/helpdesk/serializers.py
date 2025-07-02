@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, TipoIncidente, Incidente, ArchivoIncidente
+from .models import Categoria, Problema, Prioridad, Ticket, Mensaje, Archivo, TipoIncidente, Incidente, ArchivoIncidente, RazonCierre, ArchivoMensaje
 from users.serializers import UserSerializer
 from django.http import FileResponse
 
@@ -87,15 +87,27 @@ class TicketCreateSerializer(serializers.ModelSerializer):
                 # y asócialo al ticket recién creado.
                 Archivo.objects.create(archivo=archivo_file, ticket=ticket) 
         return ticket
+        
+class RazonCierreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RazonCierre
+        fields = '__all__'
 
 class TicketSerializer(serializers.ModelSerializer):
     archivos = ArchivoSerializer(many=True, read_only=True)
     problema = ProblemaSerializer(read_only=True)
     user = UserSerializer(read_only=True)
+    razones_cierre = RazonCierreSerializer(many=True, read_only=True)
+    razones_cierre_ids = serializers.ListField(write_only=True, child=serializers.IntegerField())
 
     class Meta:
         model = Ticket
-        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'status', 'isDeleted', 'created_at', 'archivos')
+        fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'status', 'isDeleted', 'created_at', 'archivos', 'razones_cierre', 'razones_cierre_ids')
+        
+    def update(self, instance, validated_data):
+        razones_ids = validated_data.pop('razones_cierre_ids', [])
+        instance.razones_cierre.set(RazonCierre.objects.filter(id__in=razones_ids))
+        return super().update(instance, validated_data)
 
 class TableTicketsSerializer(serializers.ModelSerializer):
     problema = ProblemaSerializer(read_only=True)
@@ -105,22 +117,66 @@ class TableTicketsSerializer(serializers.ModelSerializer):
         model = Ticket
         fields = ('id', 'asunto', 'descripcion', 'problema', 'user', 'isDeleted', 'status', 'created_at')
 
+class ArchivoMensajeSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArchivoMensaje
+        fields = ('id', 'archivo', 'tipo', 'url')
+
+    def get_url(self, obj):
+        request = self.context.get('request')
+        if obj.archivo:
+            return request.build_absolute_uri(obj.archivo.url)
+        return None
+
 class MensajeSerializer(serializers.ModelSerializer):
-    ticket = TicketSerializer(read_only=True)
+    archivos = ArchivoMensajeSerializer(many=True, read_only=True)
 
     class Meta:
         model = Mensaje
-        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo', 'isFromClient']  
+        fields = ['id', 'texto', 'created_at', 'ticket', 'archivos', 'isFromClient']
+
 
 class MensajeCreateSerializer(serializers.ModelSerializer):
+    archivos = serializers.ListField(
+        write_only=True,
+        required=False,
+        child=serializers.FileField()
+    )  # Acepta múltiples archivos.
 
     class Meta:
         model = Mensaje
-        fields = ['id', 'texto', 'created_at', 'ticket', 'archivo', 'isFromClient'] 
+        fields = ['id', 'texto', 'ticket', 'archivos', 'isFromClient']
+
+    def create(self, validated_data):
+        archivos_data = validated_data.pop('archivos', [])
+        texto = validated_data.get('texto', None)  # Mantener None si no se envió texto explícitamente
+
+        # Si no se envió texto, pero sí archivos, asignar un mensaje predeterminado
+        if texto is None or texto.strip() == "":
+            if archivos_data:
+                texto = "[Mensaje con archivos adjuntos]"
+            else:
+                texto = "[Mensaje vacío]"
+
+        mensaje = Mensaje.objects.create(
+            texto=texto,
+            ticket=validated_data['ticket'],
+            isFromClient=validated_data['isFromClient']
+        )
+
+        for archivo in archivos_data:
+            ArchivoMensaje.objects.create(archivo=archivo, mensaje=mensaje)
+
+        return mensaje
+ 
 
 class TipoIncidenteSerializer(serializers.ModelSerializer):
-    prioridad = serializers.PrimaryKeyRelatedField(queryset=Prioridad.objects.all())
-    prioridad = PrioridadSerializer(read_only=True)
+    prioridad = serializers.PrimaryKeyRelatedField(
+        queryset=Prioridad.objects.all(), write_only=True
+    )  # Se usará este campo solo para escritura
+    prioridad_detail = PrioridadSerializer(source='prioridad', read_only=True)  # Este campo es solo para lectura
 
     class Meta:
         model = TipoIncidente

@@ -21,4 +21,5 @@ urlpatterns = [
     path('empresas/<int:empresa_id>/delete/', views.DeleteEmpresaView.as_view(), name='delete-empresa'),
 
     path('tickets/by_company/', views.TicketListByCompany.as_view(), name='tickets-by-company'),
+    path('check-env/', views.check_env),
 ]
